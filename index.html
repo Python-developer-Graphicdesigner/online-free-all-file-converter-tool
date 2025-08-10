@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ab check karn main ny theak place py add kya java ka code bs yes or no bata dyn <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta name="google-site-verification" content="BYcaVN7orE6cTPVc5KditDaHjZoaMWHxJQfuAMsXQVA" />
@@ -644,28 +644,50 @@
         
         // === کنورژن بٹن ===
         document.querySelectorAll('.convert-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const fileInput = this.closest('.converter-box').querySelector('.file-input');
-                if(fileInput.files.length === 0) {
-                    alert('Please select a file first!');
-                    return;
-                }
-                
-                const originalText = this.innerHTML;
-                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-                this.disabled = true;
-                
-                setTimeout(() => {
-                    this.innerHTML = '<i class="fas fa-check"></i> Download Ready!';
-                    alert('Your file has been converted successfully!');
-                    
-                    setTimeout(() => {
-                        this.innerHTML = originalText;
-                        this.disabled = false;
-                    }, 3000);
-                }, 2000);
+    btn.addEventListener('click', async function() {
+        const converterBox = this.closest('.converter-box');
+        const fileInput = converterBox.querySelector('input[type="file"]');
+        const formatSelect = converterBox.querySelector('select');
+        
+        if (!fileInput.files.length) {
+            alert('Please select a file first!');
+            return;
+        }
+
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        this.disabled = true;
+
+        try {
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('format', formatSelect.value);
+            
+            // Replace with your backend API URL
+            const response = await fetch('https://your-backend-api.com/upload', {
+                method: 'POST',
+                body: formData
             });
-        });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.innerHTML = '<i class="fas fa-check"></i> Download Ready!';
+                setTimeout(() => {
+                    window.location.href = result.download_url;
+                    this.innerHTML = originalText;
+                    this.disabled = false;
+                }, 1000);
+            } else {
+                throw new Error(result.error || 'Conversion failed');
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+            this.innerHTML = originalText;
+            this.disabled = false;
+        }
+    });
+});
     </script>
 </body>
 </html>
