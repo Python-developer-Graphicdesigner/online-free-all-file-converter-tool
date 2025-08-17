@@ -627,68 +627,111 @@
 
     <!-- فونٹ آؤمک آئیکنز -->
     <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
-    
     <script>
-        // === ٹیب سسٹم ===
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                // تمام ٹیبز کو غیر فعال کریں
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                
-                // موجودہ ٹیب کو فعال کریں
-                btn.classList.add('active');
-                document.getElementById(btn.dataset.tab).classList.add('active');
-            });
-        });
-        
-        // === کنورژن بٹن ===
-        document.querySelectorAll('.convert-btn').forEach(btn => {
-    btn.addEventListener('click', async function() {
-        const converterBox = this.closest('.converter-box');
-        const fileInput = converterBox.querySelector('input[type="file"]');
-        const formatSelect = converterBox.querySelector('select');
-        
-        if (!fileInput.files.length) {
-            alert('Please select a file first!');
-            return;
-        }
-
-        const originalText = this.innerHTML;
-        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-        this.disabled = true;
-
-        try {
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-            formData.append('format', formatSelect.value);
-            
-            // Replace with your backend API URL
-            const response = await https://web-production-83ec94.up.railway.app/convert
-, {
-                method: 'POST',
-                body: formData
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                this.innerHTML = '<i class="fas fa-check"></i> Download Ready!';
-                setTimeout(() => {
-                    window.location.href = result.download_url;
-                    this.innerHTML = originalText;
-                    this.disabled = false;
-                }, 1000);
-            } else {
-                throw new Error(result.error || 'Conversion failed');
-            }
-        } catch (error) {
-            alert('Error: ' + error.message);
-            this.innerHTML = originalText;
-            this.disabled = false;
-        }
+  // === Tab system (unchanged) ===
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
     });
-});
-    </script>
+  });
+
+  // === Conversion buttons (fixed) ===
+  const API_BASE = 'https://web-production-83ec94.up.railway.app';
+  const API_CONVERT_URL = API_BASE + '/convert';
+
+  document.querySelectorAll('.convert-btn').forEach(btn => {
+    btn.addEventListener('click', async function () {
+      const converterBox = this.closest('.converter-box');
+      const fileInput = converterBox.querySelector('input[type="file"]');
+      const formatSelect = converterBox.querySelector('select');
+
+      if (!fileInput.files.length) {
+        alert('Please select a file first!');
+        return;
+      }
+      if (!formatSelect.value) {
+        alert('Please select a conversion type/format!');
+        return;
+      }
+
+      const originalHTML = this.innerHTML;
+      this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+      this.disabled = true;
+
+      try {
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('format', formatSelect.value);
+
+        const response = await fetch(API_CONVERT_URL, {
+          method: 'POST',
+          body: formData
+          // If your backend needs auth headers, add them here
+        });
+
+        // If backend returned JSON (e.g., { success, download_url, error })
+        const contentType = (response.headers.get('content-type') || '').toLowerCase();
+        if (contentType.includes('application/json')) {
+          const result = await response.json();
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Conversion failed');
+          }
+          // Redirect to download URL from backend
+          this.innerHTML = '<i class="fas fa-check"></i> Download Ready!';
+          setTimeout(() => {
+            window.location.href = result.download_url;
+            this.innerHTML = originalHTML;
+            this.disabled = false;
+          }, 600);
+          return;
+        }
+
+        // Otherwise, assume backend returned the file directly (send_file)
+        if (!response.ok) {
+          // Try to read text error if available
+          const errText = await response.text();
+          throw new Error(errText || 'Conversion failed');
+        }
+
+        const blob = await response.blob();
+
+        // Try to extract filename from headers; else use a default
+        let filename = 'converted_file';
+        const disposition = response.headers.get('content-disposition');
+        if (disposition && disposition.includes('filename=')) {
+          const match = disposition.match(/filename\*?=(?:UTF-8''|")?([^\";]+)/i);
+          if (match && match[1]) filename = decodeURIComponent(match[1].replace(/"/g, ''));
+        } else {
+          // fall back: use selected format extension if available
+          if (formatSelect.value) filename += '.' + formatSelect.value.replace(/[^a-z0-9]+/gi, '');
+        }
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        this.innerHTML = '<i class="fas fa-check"></i> Downloaded!';
+        setTimeout(() => {
+          this.innerHTML = originalHTML;
+          this.disabled = false;
+        }, 600);
+
+      } catch (error) {
+        alert('Error: ' + (error.message || error));
+        this.innerHTML = originalHTML;
+        this.disabled = false;
+      }
+    });
+  });
+</script>
+
 </body>
 </html>
